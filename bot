@@ -1,0 +1,67 @@
+import 'dotenv/config';
+import fetch from 'node-fetch';
+import { ethers } from 'ethers';
+import fs from 'fs';
+
+
+const MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+const OPENAI_KEY = process.env.OPENAI_API_KEY;
+const RPC_URL = process.env.RPC_URL; // e.g. Sepolia RPC
+const PRIVATE_KEY = process.env.PRIVATE_KEY;
+const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
+
+
+// Minimal ABI (only what's used)
+const ABI = [
+"function mintWithStyle(address to, string styleJSON) external returns (uint256)",
+"function nextId() view returns (uint256)",
+];
+
+
+async function chatToStyleJSON(naturalIdea) {
+const system = `You compress art prompts into TINY JSON (<=160 bytes). Keys: bg (hex color), seed (int), shapes (up to 3 from circle,rect,poly). Output ONLY compact JSON.`;
+const user = `Idea: ${naturalIdea}`;
+
+
+const res = await fetch('https://api.openai.com/v1/chat/completions', {
+method: 'POST',
+headers: {
+'Authorization': `Bearer ${OPENAI_KEY}`,
+'Content-Type': 'application/json'
+},
+body: JSON.stringify({
+model: MODEL,
+messages: [
+{ role: 'system', content: system },
+{ role: 'user', content: user }
+],
+temperature: 0.5,
+})
+});
+
+
+if (!res.ok) {
+const t = await res.text();
+throw new Error(`OpenAI error ${res.status}: ${t}`);
+}
+const data = await res.json();
+const content = data.choices?.[0]?.message?.content?.trim();
+if (!content || !content.startsWith('{')) throw new Error('Bad JSON from model');
+
+
+// Extra safety: enforce size cap
+if (Buffer.byteLength(content, 'utf8') > 160) {
+throw new Error('Style JSON too large; refine prompt or rules');
+}
+return content;
+}
+
+
+async function mint(styleJSON, toAddress) {
+const provider = new ethers.JsonRpcProvider(RPC_URL);
+const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+const c = new ethers.Contract(CONTRACT_ADDRESS, ABI, wallet);
+
+
+const tx = await c.mintWithStyle(toAddress, styleJSON);
+co
