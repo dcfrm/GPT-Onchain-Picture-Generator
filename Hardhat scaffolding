@@ -1,0 +1,38 @@
+mkdir chatgpt-onchain && cd chatgpt-onchain
+npm init -y
+npm i --save-dev hardhat @nomicfoundation/hardhat-toolbox
+npm i @openzeppelin/contracts ethers
+npx hardhat init
+
+import { HardhatUserConfig } from "hardhat/config";
+import "@nomicfoundation/hardhat-toolbox";
+
+
+const config: HardhatUserConfig = {
+solidity: "0.8.20",
+networks: {
+// Fill from .env
+sepolia: {
+url: process.env.RPC_URL || "",
+accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+},
+}
+};
+export default config;
+
+import { ethers } from "hardhat";
+
+
+async function main() {
+const F = await ethers.getContractFactory("ChatGPTArt");
+const c = await F.deploy();
+await c.waitForDeployment();
+console.log("ChatGPTArt deployed:", await c.getAddress());
+}
+
+
+main().catch((e) => { console.error(e); process.exit(1); });
+
+npm i -D dotenv ts-node typescript
+npx hardhat compile
+npx hardhat run scripts/deploy.ts --network sepolia
