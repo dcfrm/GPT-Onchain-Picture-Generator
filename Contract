@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: MIT
+uint r5 = uint(uint8(h[4]));
+
+
+string memory bg = _hexColor(uint32(uint256(h) & 0xFFFFFF));
+string memory fg1 = _hexColor(uint32((uint256(h) >> 24) & 0xFFFFFF));
+string memory fg2 = _hexColor(uint32((uint256(h) >> 48) & 0xFFFFFF));
+
+
+// Canvas 1000x1000 for crispness in marketplaces
+string memory head = string(abi.encodePacked(
+'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">',
+'<rect width="100%" height="100%" fill="', bg, '"/>'
+));
+
+
+// A few layered shapes from hashes
+string memory circle = string(abi.encodePacked(
+'<circle cx="', _u(((r1 * 7) % 800) + 100), '" cy="', _u(((r2 * 9) % 800) + 100), '" r="', _u(((r3 % 300) + 80)), '" fill="', fg1, '" fill-opacity="0.7" />'
+));
+string memory rect = string(abi.encodePacked(
+'<rect x="', _u(((r4 * 11) % 700) + 150), '" y="', _u(((r5 * 13) % 700) + 150), '" width="', _u(((r2 % 500) + 100)), '" height="', _u(((r3 % 500) + 120)), '" fill="', fg2, '" fill-opacity="0.65" rx="50" ry="50" />'
+));
+string memory poly = string(abi.encodePacked(
+'<polygon points="', _u(100 + (r1 % 800)), ',', _u(100 + (r2 % 800)), ' ', _u(100 + (r3 % 800)), ',', _u(100 + (r4 % 800)), ' ', _u(100 + (r5 % 800)), ',', _u(100 + (r1 % 800)), '" fill="#FFFFFF" fill-opacity="0.08" />'
+));
+
+
+string memory foot = '</svg>';
+return string(abi.encodePacked(head, circle, rect, poly, foot));
+}
+
+
+// ------------------------
+// Utils
+// ------------------------
+function _u(uint v) internal pure returns (string memory) { return v.toString(); }
+
+
+function _hexColor(uint32 val) internal pure returns (string memory) {
+bytes16 HEX = 0x30313233343536373839616263646566; // '0123456789abcdef'
+bytes memory s = new bytes(7);
+s[0] = '#';
+for (uint i = 0; i < 6; i++) {
+s[6 - i] = bytes1(HEX[val & 0x0f]);
+val >>= 4;
+}
+return string(s);
+}
+
+
+function _base64(bytes memory data) internal pure returns (string memory) {
+string memory TABLE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+uint256 len = data.length;
+if (len == 0) return "";
+uint256 encodedLen = 4 * ((len + 2) / 3);
+bytes memory result = new bytes(encodedLen + 32);
+bytes memory table = bytes(TABLE);
+assembly {
+let tablePtr := add(table, 1)
+let resultPtr := add(result, 32)
+for { let i := 0 } lt(i, len) {} {
+i := add(i, 3)
+let input := and(mload(add(data, i)), 0xffffff)
+mstore8(resultPtr, mload(add(tablePtr, and(shr(18, input), 0x3F))))
+resultPtr := add(resultPtr, 1)
+mstore8(resultPtr, mload(add(tablePtr, and(shr(12, input), 0x3F))))
+resultPtr := add(resultPtr, 1)
+mstore8(resultPtr, mload(add(tablePtr, and(shr(6, input), 0x3F))))
+resultPtr := add(resultPtr, 1)
+mstore8(resultPtr, mload(add(tablePtr, and(input, 0x3F))))
+resultPtr := add(resultPtr, 1)
+}
+switch mod(len, 3)
+case 1 { mstore(sub(resultPtr, 2), shl(240, 0x3d3d)) }
+case 2 { mstore(sub(resultPtr, 1), shl(248, 0x3d)) }
+mstore(result, encodedLen)
+}
+return string(result);
+}
+}
